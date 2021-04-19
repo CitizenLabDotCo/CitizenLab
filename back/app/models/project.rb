@@ -99,8 +99,14 @@ class Project < ApplicationRecord
     where(visible_to: 'public')
   }
 
-  scope :user_groups_visible, lambda { |user|
-    where("projects.visible_to = 'groups' AND EXISTS(SELECT 1 FROM groups_projects WHERE project_id = projects.id AND group_id IN (?))", user.group_ids)
+  scope :visible_to_groups, lambda { |user = nil|
+    group_projects = where("projects.visible_to = 'groups'")
+
+    if user
+      group_projects.where("EXISTS(SELECT 1 FROM groups_projects WHERE project_id = projects.id AND group_id IN (?))", user.group_ids)
+    else
+      group_projects
+    end
   }
 
   def moderators
@@ -193,7 +199,8 @@ class Project < ApplicationRecord
   end
 end
 
-Project.include(ProjectPermissions::Patches::Project)
 Project.include_if_ee('CustomMaps::Extensions::Project')
-Project.prepend_if_ee('ProjectFolders::Patches::Project')
+Project.include_if_ee('ProjectPermissions::Patches::Project')
 Project.include_if_ee('IdeaAssignment::Extensions::Project')
+
+Project.prepend_if_ee('ProjectFolders::Patches::Project')

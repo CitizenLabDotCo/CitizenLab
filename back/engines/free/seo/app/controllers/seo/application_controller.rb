@@ -10,13 +10,9 @@ module Seo
 
     def sitemap
       statuses     = %w[published archived]
-      @projects    = Project.select(
-        :'projects.id', :'projects.slug', :'projects.visible_to',
-        :'projects.updated_at', :'admin_publications.publication_status',
-        :'admin_publications.publication_type', :'admin_publications.publication_id'
-      ).includes(:admin_publication).where(visible_to: 'public', admin_publications: { publication_status: statuses })
       @initiatives = Initiative.select(:slug, :updated_at, :publication_status).where(publication_status: statuses)
       @pages       = Page.select(:slug, :updated_at, :publication_status).where(publication_status: statuses)
+      @projects    = ProjectPolicy::Scope.new(nil, Project).resolve
       @ideas       = Idea.select(:slug, :updated_at, :project_id).where(project_id: @projects.map(&:id))
     end
 

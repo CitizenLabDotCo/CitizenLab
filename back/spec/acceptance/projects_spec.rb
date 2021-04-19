@@ -235,7 +235,6 @@ resource 'Projects' do
         parameter :header_bg, "Base64 encoded header image"
         parameter :area_ids, "Array of ids of the associated areas"
         parameter :topic_ids, "Array of ids of the associated topics"
-        parameter :visible_to, "Defines who can see the project, either #{Project::VISIBLE_TOS.join(",")}. Defaults to public.", required: false
         parameter :participation_method, "Only for continuous projects. Either #{ParticipationContext::PARTICIPATION_METHODS.join(",")}. Defaults to ideation.", required: false
         parameter :posting_enabled, "Only for continuous projects. Can citizens post ideas in this project? Defaults to true", required: false
         parameter :commenting_enabled, "Only for continuous projects. Can citizens post comment in this project? Defaults to true", required: false
@@ -252,7 +251,10 @@ resource 'Projects' do
         parameter :ideas_order, 'The default order of ideas.'
         parameter :input_term, 'The input term for posts.'
 
-        parameter :folder_id, "The ID of the project folder (can be set to nil for top-level projects)", required: false if CitizenLab.ee?
+        if CitizenLab.ee?
+          parameter :folder_id, "The ID of the project folder (can be set to nil for top-level projects)", required: false
+          parameter :visible_to, "Defines who can see the project, either #{Project::VISIBLE_TOS.join(",")}. Defaults to public.", required: false
+        end
       end
 
       with_options scope: [:project, :admin_publication_attributes] do
@@ -274,10 +276,12 @@ resource 'Projects' do
         let(:description_preview_multiloc) { project.description_preview_multiloc }
         let(:header_bg) { encode_image_as_base64('header.jpg') }
         let(:area_ids) { create_list(:area, 2).map(&:id) }
-        let(:visible_to) { 'admins' }
         let(:publication_status) { 'draft' }
 
-        let(:default_assignee_id) { create(:admin).id } if CitizenLab.ee?
+        if CitizenLab.ee?
+          let(:default_assignee_id) { create(:admin).id }
+          let(:visible_to) { 'admins' }
+        end
 
         example_request 'Create a timeline project' do
           expect(response_status).to eq 201
@@ -286,7 +290,6 @@ resource 'Projects' do
           expect(json_response.dig(:data,:attributes,:description_multiloc).stringify_keys).to match description_multiloc
           expect(json_response.dig(:data,:attributes,:description_preview_multiloc).stringify_keys).to match description_preview_multiloc
           expect(json_response.dig(:data,:relationships,:areas,:data).map{|d| d[:id]}).to match_array area_ids
-          expect(json_response.dig(:data,:attributes,:visible_to)).to eq 'admins'
           expect(json_response[:included].select{|inc| inc[:type] == 'admin_publication'}.first.dig(:attributes, :publication_status)).to eq 'draft'
           if CitizenLab.ee?
             expect(json_response.dig(:data, :relationships, :default_assignee, :data, :id)).to eq default_assignee_id
@@ -296,6 +299,8 @@ resource 'Projects' do
           expect(json_response[:included].select{|inc| inc[:type] == 'admin_publication'}.first.dig(:attributes, :ordering)).to eq 0
           expect(json_response.dig(:data,:relationships,:topics,:data).map{|d| d[:id]}).to match_array Topic.defaults.ids
           expect(ProjectsTopic.where(project_id: json_response.dig(:data,:id)).order('projects_topics.ordering').pluck(:topic_id)).to eq Topic.defaults.order(:ordering).ids
+
+          expect(json_response.dig(:data,:attributes,:visible_to)).to eq('admins') if CitizenLab.ee?
         end
 
         example 'Create a project in a folder', skip: !CitizenLab.ee? do
@@ -316,7 +321,6 @@ resource 'Projects' do
         let(:description_preview_multiloc) { project.description_preview_multiloc }
         let(:header_bg) { encode_image_as_base64('header.jpg') }
         let(:area_ids) { create_list(:area, 2).map(&:id) }
-        let(:visible_to) { 'admins' }
         let(:process_type) { project.process_type }
         let(:participation_method) { project.participation_method }
         let(:presentation_mode) { 'map' }
@@ -327,6 +331,8 @@ resource 'Projects' do
         let(:voting_limited_max) { project.voting_limited_max }
         let(:ideas_order) { 'new' }
 
+        let(:visible_to) { 'admins' } if CitizenLab.ee?
+
         example_request 'Create a continuous project' do
           expect(response_status).to eq 201
           expect(json_response.dig(:data,:attributes,:process_type)).to eq process_type
@@ -334,7 +340,6 @@ resource 'Projects' do
           expect(json_response.dig(:data,:attributes,:description_multiloc).stringify_keys).to match description_multiloc
           expect(json_response.dig(:data,:attributes,:description_preview_multiloc).stringify_keys).to match description_preview_multiloc
           expect(json_response.dig(:data,:relationships,:areas,:data).map{|d| d[:id]}).to match_array area_ids
-          expect(json_response.dig(:data,:attributes,:visible_to)).to eq visible_to
           expect(json_response.dig(:data,:attributes,:participation_method)).to eq participation_method
           expect(json_response.dig(:data,:attributes,:presentation_mode)).to eq presentation_mode
           expect(json_response.dig(:data,:attributes,:posting_enabled)).to eq posting_enabled
@@ -347,6 +352,8 @@ resource 'Projects' do
           expect(json_response.dig(:data,:attributes,:ideas_order)).to eq 'new'
           expect(json_response.dig(:data,:attributes,:input_term)).to be_present
           expect(json_response.dig(:data,:attributes,:input_term)).to eq 'idea'
+
+          expect(json_response.dig(:data,:attributes,:visible_to)).to eq(visible_to) if CitizenLab.ee?
         end
 
         context 'when not admin' do
@@ -409,7 +416,6 @@ resource 'Projects' do
         parameter :header_bg, "Base64 encoded header image"
         parameter :area_ids, "Array of ids of the associated areas"
         parameter :topic_ids, "Array of ids of the associated topics"
-        parameter :visible_to, "Defines who can see the project, either #{Project::VISIBLE_TOS.join(",")}.", required: false
         parameter :participation_method, "Only for continuous projects. Either #{ParticipationContext::PARTICIPATION_METHODS.join(",")}.", required: false
         parameter :posting_enabled, "Only for continuous projects. Can citizens post ideas in this project?", required: false
         parameter :commenting_enabled, "Only for continuous projects. Can citizens post comment in this project?", required: false
@@ -425,7 +431,10 @@ resource 'Projects' do
         parameter :poll_anonymous, "Are users associated with their answer? Only applies if participation_method is 'poll'. Can't be changed after first answer.", required: false
         parameter :ideas_order, 'The default order of ideas.'
 
-        parameter :folder_id, "The ID of the project folder (can be set to nil for top-level projects)" if CitizenLab.ee?
+        if CitizenLab.ee?
+          parameter :folder_id, "The ID of the project folder (can be set to nil for top-level projects)"
+          parameter :visible_to, "Defines who can see the project, either #{Project::VISIBLE_TOS.join(",")}.", required: false
+        end
       end
 
       with_options scope: [:project, :admin_publication_attributes] do
@@ -441,12 +450,14 @@ resource 'Projects' do
       let(:slug) { 'changed-title' }
       let(:header_bg) { encode_image_as_base64('header.jpg') }
       let(:area_ids) { create_list(:area, 2).map(&:id) }
-      let(:visible_to) { 'groups' }
       let(:presentation_mode) { 'card' }
       let(:publication_status) { 'archived' }
       let(:ideas_order) { 'new' }
 
-      let(:default_assignee_id) { create(:admin).id } if CitizenLab.ee?
+      if CitizenLab.ee?
+        let(:default_assignee_id) { create(:admin).id }
+        let(:visible_to) { 'groups' }
+      end
 
       example 'Update a project' do
         old_publcation_ids = AdminPublication.ids
@@ -460,14 +471,15 @@ resource 'Projects' do
         expect(json_response.dig(:data,:attributes,:description_preview_multiloc).stringify_keys).to match description_preview_multiloc
         expect(json_response.dig(:data,:attributes,:slug)).to eq "changed-title"
         expect(json_response.dig(:data,:relationships,:areas,:data).map{|d| d[:id]}).to match_array area_ids
-        expect(json_response.dig(:data,:attributes,:visible_to)).to eq 'groups'
         expect(json_response.dig(:data,:attributes,:ideas_order)).to be_present
         expect(json_response.dig(:data,:attributes,:ideas_order)).to eq 'new'
         expect(json_response.dig(:data,:attributes,:input_term)).to be_present
         expect(json_response.dig(:data,:attributes,:input_term)).to eq 'idea'
         expect(json_response.dig(:data,:attributes,:presentation_mode)).to eq 'card'
         expect(json_response[:included].select{|inc| inc[:type] == 'admin_publication'}.first.dig(:attributes, :publication_status)).to eq 'archived'
+
         if CitizenLab.ee?
+          expect(json_response.dig(:data,:attributes,:visible_to)).to eq('groups')
           expect(json_response.dig(:data, :relationships, :default_assignee, :data, :id)).to eq default_assignee_id
         end
       end
