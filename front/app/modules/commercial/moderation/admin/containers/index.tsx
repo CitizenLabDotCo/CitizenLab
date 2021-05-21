@@ -334,7 +334,13 @@ const Moderation = memo<Props & InjectedIntlProps>(({ className, intl }) => {
     [selectedRows, processing]
   );
 
-  const removeFlags = () => {};
+  const removeFlags = () => {
+    trackEventByName(tracks.flagRemoved, {
+      tenantId,
+      tenantHost,
+      flag,
+    });
+  };
   // const removeFlags = useCallback(
   //   async (event: React.FormEvent) => {
   //     if (
