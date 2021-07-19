@@ -1,6 +1,5 @@
 import React, { memo } from 'react';
 import moment from 'moment';
-import { isNilOrError } from 'utils/helperUtils';
 
 // components
 import DateBlocks from './DateBlocks';
@@ -9,18 +8,27 @@ import EventInformation from './EventInformation';
 // services
 import { IEventData } from 'services/events';
 
-// utils
-import { getIsoDate } from 'utils/dateUtils';
+// hooks
+import useLocale from 'hooks/useLocale';
+import useProject from 'hooks/useProject';
 
 // style
 import styled from 'styled-components';
-import { defaultCardStyle } from 'utils/styleUtils';
+import { defaultCardStyle, defaultCardHoverStyle } from 'utils/styleUtils';
 
-const Container = styled.div`
+// other
+import { getIsoDate } from 'utils/dateUtils';
+import { isNilOrError, isNil } from 'utils/helperUtils';
+import clHistory from 'utils/cl-router/history';
+import { setScrollToEventId } from 'containers/ProjectsShowPage/shared/events/scrollToEventState';
+
+const Container = styled.div<{ clickable?: boolean }>`
   width: 100%;
   padding: 30px;
   display: flex;
   ${defaultCardStyle};
+  ${({ clickable }) => (clickable ? defaultCardHoverStyle : '')}
+  ${({ clickable }) => (clickable ? 'cursor: pointer;' : '')}
   box-shadow: none;
   border: solid 1px #ccc;
 `;
@@ -28,13 +36,28 @@ const Container = styled.div`
 interface InputProps {
   event: IEventData;
   className?: string;
+  id?: string;
   showProjectTitle?: boolean;
+  showLocation?: boolean;
+  showDescription?: boolean;
+  clickable?: boolean;
 }
 
 interface Props extends InputProps {}
 
 const EventCard = memo<Props>((props) => {
-  const { event, className, showProjectTitle } = props;
+  const { event, className, id, clickable, ...otherProps } = props;
+  const projectId = event.relationships.project.data.id;
+
+  const locale = useLocale();
+  const project = useProject({ projectId });
+
+  const onClick = () => {
+    if (isNilOrError(locale) || isNil(project)) return;
+
+    setScrollToEventId(event.id);
+    clHistory.push(`/${locale}/projects/${project.attributes.slug}`);
+  };
 
   if (!isNilOrError(event)) {
     const startAtMoment = moment(event.attributes.start_at);
@@ -44,7 +67,12 @@ const EventCard = memo<Props>((props) => {
     const isMultiDayEvent = startAtIsoDate !== endAtIsoDate;
 
     return (
-      <Container className={className || ''}>
+      <Container
+        className={className || ''}
+        id={id || ''}
+        clickable={clickable}
+        onClick={onClick}
+      >
         <DateBlocks
           startAtMoment={startAtMoment}
           endAtMoment={endAtMoment}
@@ -56,7 +84,7 @@ const EventCard = memo<Props>((props) => {
           startAtMoment={startAtMoment}
           endAtMoment={endAtMoment}
           isMultiDayEvent={isMultiDayEvent}
-          showProjectTitle={showProjectTitle}
+          {...otherProps}
         />
       </Container>
     );

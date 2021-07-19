@@ -9,6 +9,7 @@ import AvatarBubbles from 'components/AvatarBubbles';
 import SignedOutHeader from './SignedOutHeader';
 import SignedInHeader from './SignedInHeader';
 import InitiativesCTABox from './InitiativesCTABox';
+import EventsWidget from './EventsWidget';
 import T from 'components/T';
 import Fragment from 'components/Fragment';
 import QuillEditedContent from 'components/UI/QuillEditedContent';
@@ -231,6 +232,11 @@ class LandingPage extends PureComponent<Props, State> {
                     </Suspense>
                   </SectionContainer>
                 </ProjectSection>
+
+                <FeatureFlag name="events_widget">
+                  <EventsWidget />
+                </FeatureFlag>
+
                 <FeatureFlag name="initiatives">
                   {postingProposalsEnabled && <StyledInitiativesCTABox />}
                 </FeatureFlag>
