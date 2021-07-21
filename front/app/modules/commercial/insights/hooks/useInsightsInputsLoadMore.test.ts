@@ -1,14 +1,19 @@
 import { renderHook, act } from '@testing-library/react-hooks';
-import useInsightsInputs, { QueryParameters } from './useInsightsInputs';
+import useInsightsInputsLoadMore, {
+  QueryParameters,
+} from './useInsightsInputsLoadMore';
 import { Observable, Subscription } from 'rxjs';
 import { delay } from 'rxjs/operators';
 import { waitFor } from 'utils/testUtils/rtl';
-import { insightsInputsStream } from 'modules/commercial/insights/services/insightsInputs';
+import {
+  insightsInputsStream,
+  IInsightsInputs,
+} from 'modules/commercial/insights/services/insightsInputs';
 import inputs from 'modules/commercial/insights/fixtures/inputs';
 
 const viewId = '1';
 
-const mockInputs = {
+const mockInputs: IInsightsInputs = {
   data: inputs,
   links: {
     self:
@@ -24,18 +29,15 @@ const mockInputs = {
 
 const queryParameters: QueryParameters = {
   category: '3',
-  pageSize: 10,
   pageNumber: 12,
   search: 'search',
-  sort: '-approval',
 };
 
 const expectedQueryParameters = {
   category: queryParameters.category,
   'page[number]': queryParameters.pageNumber,
-  'page[size]': queryParameters.pageSize,
+  'page[size]': 20,
   search: queryParameters.search,
-  sort: queryParameters.sort,
 };
 
 let mockObservable = new Observable((subscriber) => {
@@ -52,30 +54,29 @@ jest.mock('modules/commercial/insights/services/insightsInputs', () => {
   };
 });
 
-describe('useInsightsInputs', () => {
-  it('should call useInsightsInputs with correct default arguments', async () => {
-    renderHook(() => useInsightsInputs(viewId));
+describe('useInsightsInputsLoadMore', () => {
+  it('should call useInsightsInputsLoadMore with correct default arguments', async () => {
+    renderHook(() => useInsightsInputsLoadMore(viewId));
     expect(insightsInputsStream).toHaveBeenCalledWith(viewId, {
       queryParameters: {
         category: undefined,
         'page[number]': 1,
         'page[size]': 20,
         search: undefined,
-        sort: 'approval',
       },
     });
   });
-  it('should call useInsightsInputs with correct non-default arguments', async () => {
-    renderHook(() => useInsightsInputs(viewId, queryParameters));
+  it('should call useInsightsInputsLoadMore with correct non-default arguments', async () => {
+    renderHook(() => useInsightsInputsLoadMore(viewId, queryParameters));
 
     expect(insightsInputsStream).toHaveBeenCalledWith(viewId, {
       queryParameters: expectedQueryParameters,
     });
   });
-  it('should call useInsightsInputs with correct arguments on category change', async () => {
+  it('should call useInsightsInputsLoadMore with correct arguments on category change', async () => {
     let category = '5';
     const { rerender } = renderHook(() =>
-      useInsightsInputs(viewId, { ...queryParameters, category })
+      useInsightsInputsLoadMore(viewId, { ...queryParameters, category })
     );
 
     expect(insightsInputsStream).toHaveBeenCalledWith(viewId, {
@@ -91,10 +92,10 @@ describe('useInsightsInputs', () => {
     });
     expect(insightsInputsStream).toHaveBeenCalledTimes(2);
   });
-  it('should call useInsightsInputs with correct arguments on page number change', async () => {
+  it('should call useInsightsInputsLoadMore with correct arguments on page number change', async () => {
     let pageNumber = 5;
     const { rerender } = renderHook(() =>
-      useInsightsInputs(viewId, { ...queryParameters, pageNumber })
+      useInsightsInputsLoadMore(viewId, { ...queryParameters, pageNumber })
     );
 
     expect(insightsInputsStream).toHaveBeenCalledWith(viewId, {
@@ -104,7 +105,7 @@ describe('useInsightsInputs', () => {
       },
     });
 
-    // Search change
+    // Page number change
     pageNumber = 10;
     rerender();
 
@@ -116,29 +117,10 @@ describe('useInsightsInputs', () => {
     });
     expect(insightsInputsStream).toHaveBeenCalledTimes(2);
   });
-  it('should call useInsightsInputs with correct arguments on page size change', async () => {
-    let pageSize = 5;
-    const { rerender } = renderHook(() =>
-      useInsightsInputs(viewId, { ...queryParameters, pageSize })
-    );
-
-    expect(insightsInputsStream).toHaveBeenCalledWith(viewId, {
-      queryParameters: { ...expectedQueryParameters, 'page[size]': pageSize },
-    });
-
-    // Search change
-    pageSize = 10;
-    rerender();
-
-    expect(insightsInputsStream).toHaveBeenCalledWith(viewId, {
-      queryParameters: { ...expectedQueryParameters, 'page[size]': pageSize },
-    });
-    expect(insightsInputsStream).toHaveBeenCalledTimes(2);
-  });
-  it('should call useInsightsInputs with correct arguments on search change', async () => {
+  it('should call useInsightsInputsLoadMore with correct arguments on search change', async () => {
     let search = 'some search';
     const { rerender } = renderHook(() =>
-      useInsightsInputs(viewId, { ...queryParameters, search })
+      useInsightsInputsLoadMore(viewId, { ...queryParameters, search })
     );
 
     expect(insightsInputsStream).toHaveBeenCalledWith(viewId, {
@@ -154,29 +136,11 @@ describe('useInsightsInputs', () => {
     });
     expect(insightsInputsStream).toHaveBeenCalledTimes(2);
   });
-  it('should call useInsightsInputs with correct arguments on sort change', async () => {
-    let sort: QueryParameters['sort'] = 'approval';
-    const { rerender } = renderHook(() =>
-      useInsightsInputs(viewId, { ...queryParameters, sort })
-    );
 
-    expect(insightsInputsStream).toHaveBeenCalledWith(viewId, {
-      queryParameters: { ...expectedQueryParameters, sort },
-    });
-
-    // Sort change
-    sort = '-approval';
-    rerender();
-
-    expect(insightsInputsStream).toHaveBeenCalledWith(viewId, {
-      queryParameters: { ...expectedQueryParameters, sort },
-    });
-    expect(insightsInputsStream).toHaveBeenCalledTimes(2);
-  });
   it('should return correct data when data', async () => {
-    const { result } = renderHook(() => useInsightsInputs(viewId));
+    const { result } = renderHook(() => useInsightsInputsLoadMore(viewId));
     expect(result.current).toStrictEqual({
-      lastPage: null,
+      hasMore: null,
       list: undefined, // initially, the hook list returns undefined
       loading: true,
     });
@@ -184,33 +148,43 @@ describe('useInsightsInputs', () => {
     await act(async () => {
       await waitFor(() => {
         expect(result.current.list).toStrictEqual(mockInputs.data);
-        expect(result.current.lastPage).toStrictEqual(1);
+        expect(result.current.hasMore).toStrictEqual(false);
         expect(result.current.loading).toStrictEqual(false);
       });
     });
   });
+
+  it('should return hasMore true when last page is not null', () => {
+    mockInputs.links.next = 'some value';
+    mockObservable = new Observable((subscriber) => {
+      subscriber.next(mockInputs);
+    });
+    const { result } = renderHook(() => useInsightsInputsLoadMore(viewId));
+    expect(result.current.hasMore).toStrictEqual(true);
+  });
+
   it('should return error when error', () => {
     const error = new Error();
     mockObservable = new Observable((subscriber) => {
       subscriber.next({ data: new Error() });
     });
-    const { result } = renderHook(() => useInsightsInputs(viewId));
+    const { result } = renderHook(() => useInsightsInputsLoadMore(viewId));
     expect(result.current.list).toStrictEqual(error);
     expect(result.current.loading).toStrictEqual(false);
-    expect(result.current.lastPage).toStrictEqual(null);
+    expect(result.current.hasMore).toStrictEqual(false);
   });
   it('should return null when data is null', () => {
     mockObservable = new Observable((subscriber) => {
       subscriber.next({ data: null });
     });
-    const { result } = renderHook(() => useInsightsInputs(viewId));
+    const { result } = renderHook(() => useInsightsInputsLoadMore(viewId));
     expect(result.current.list).toBe(null);
     expect(result.current.loading).toStrictEqual(false);
-    expect(result.current.lastPage).toStrictEqual(null);
+    expect(result.current.hasMore).toStrictEqual(false);
   });
   it('should unsubscribe on unmount', () => {
     spyOn(Subscription.prototype, 'unsubscribe');
-    const { unmount } = renderHook(() => useInsightsInputs(viewId));
+    const { unmount } = renderHook(() => useInsightsInputsLoadMore(viewId));
 
     unmount();
     expect(Subscription.prototype.unsubscribe).toHaveBeenCalledTimes(1);
